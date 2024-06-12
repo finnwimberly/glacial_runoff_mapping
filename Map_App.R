@@ -23,8 +23,8 @@ basin_outlines <- st_read(outline_path)
 #Reading in peak water data
 #Lets define all of our dimensions
 scenarios <- c('ssp126','ssp245','ssp370','ssp585')
-pw_path <- paste0(basepath, "CSV Outputs/Median PW/Median_PeakWater")
 
+pw_path <- paste0(basepath, "CSV Outputs/Median PW/Median_PeakWater")
 # Read the CSV files into R dataframes
 ssp126_df <- read.csv(paste0(pw_path,"_ssp126.csv"))
 ssp245_df <- read.csv(paste0(pw_path,"_ssp245.csv"))
@@ -76,6 +76,25 @@ for (ssp_name in names(ssp_dataframes)) {
   merged_data_list[[ssp_name]] <- merge(basin_outlines, ssp_dataframes[[ssp_name]], 
                                         by.x = "RIVER_BASI", by.y = "X", all.x = TRUE)}
 
+#Loading in runoff data
+rf_path <- paste0(basepath, 'CSV Outputs/RF Values/')
+# Read runoff data for SSPs
+ssp126_rfdf <- read.csv(paste0(rf_path,"ssp126_avgRF.csv"))
+ssp245_rfdf <- read.csv(paste0(rf_path,"ssp245_avgRF.csv"))
+ssp370_rfdf <- read.csv(paste0(rf_path,"ssp370_avgRF.csv"))
+ssp585_rfdf <- read.csv(paste0(rf_path,"ssp585_avgRF.csv"))
+
+# Create a list to store the dataframes
+rf_dataframes <- list(ssp126_rfdf, ssp245_rfdf, ssp370_rfdf, ssp585_rfdf)
+
+# Set names for easier indexing
+names(rf_dataframes) <- c("ssp126", "ssp245", "ssp370", "ssp585")
+
+# Reorder rows in each rf_dataframes dataframe alphabetically by "X"
+for (ssp in names(rf_dataframes)) {
+  rf_dataframes[[ssp]] <- rf_dataframes[[ssp]][order(rf_dataframes[[ssp]]$X), ]
+}
+
 #Reading in dataframe that contains additional basin data
 supp_path <- paste0(basepath, "/CSV Outputs/Parameters/MASTERS/")
 
@@ -124,41 +143,55 @@ median_df$Basin_Name <- basin_info_dataframes[[gmodels[1]]]$Basin_Name
 basin_info_dataframes[["Median"]] <- median_df
 
 # Define the color palette based on the range of years
-my_colors <- colorNumeric(palette = "magma", domain = range(2000, 2100))
+my_colors1 <- colorNumeric(palette = "magma", domain = range(2000, 2100))
+my_colors2 <- colorNumeric(palette = "viridis", domain = range(0, 82))
 
 # Creating our UI
 ui <- fluidPage(
-  titlePanel("Year of Peak Water for all Basins"),
+  titlePanel("Projected 21st Century Glacier Runoff"),
   sidebarLayout(
     sidebarPanel(
+      selectInput("colorfill", "Select Color Fill:", choices = 
+                    c("Average Annual Runoff", "Year of Peak Water")),
       selectInput("ssp", "Select SSP:", choices = names(merged_data_list)),
       selectInput("glacier_model", "Select Glacier Model:", choices = c("Multi-Model Median", "GloGEM", "PyGEM", "OGGM"))
     ),
     mainPanel(
-      leafletOutput("map")
+      leafletOutput("map"),
+      tags$style(HTML(".legend-superscript { line-height: 0.8; }"))  # CSS for adjusting line height
     )
   )
 )
 
+
 # Server
 server <- function(input, output, session) {
   # Show notification on initial load
-  showNotification("Welcome to the MINT (Middlebury Ice Numerical Team) interactive 
-  glacier model intercomparison map. This app presents century-scale runoff 
+  showNotification("Welcome to the MINT (Middlebury Ice Numerical Team) interactive
+  glacier model intercomparison map. This app presents century-scale runoff
   projections from 3 state-of-the-art glacier evolution models. The basins
-  are colored according to the year of projected peak water (maximum annual runoff).
+  can be colored according to their (across-century) average annual runoff or year 
+  of projected peak water (year of maximum annual runoff).
   You can select any of the 3 glacier models, or the multi-model median, for 4
-  different emission scenarios from the drop-down menus. Clicking on any 
-  individual basin will result in a pop-up containing more information and 
-  figures relevant to that basin. Enjoy!", 
+  different emission scenarios from the drop-down menus. Clicking on any
+  individual basin will result in a pop-up containing more information and
+  figures relevant to that basin. Enjoy!",
                    duration = NULL, type = "message")
   
   # Reactive expression to get the selected glacier model data
-  get_glacier_model_data <- reactive({
+  get_glacier_model_data1 <- reactive({
     if (input$glacier_model == "Multi-Model Median") {
       return(merged_data_list[[input$ssp]]$Median_PeakWater)
     } else {
       return(merged_data_list[[input$ssp]][[input$glacier_model]])
+    }
+  })
+  
+  get_glacier_model_data2 <- reactive({
+    if (input$glacier_model == "Multi-Model Median") {
+      return(rf_dataframes[[input$ssp]]$Median_RF)
+    } else {
+      return(rf_dataframes[[input$ssp]][[input$glacier_model]])
     }
   })
   
@@ -175,16 +208,55 @@ server <- function(input, output, session) {
     return(plot_file_path)
   }
   
+  
   output$map <- renderLeaflet({
-    leaflet() |>
-      addTiles() |>
-      addPolygons(data = merged_data_list[[input$ssp]],
-                  opacity = 1,
-                  fillOpacity = 1,
-                  fillColor = ~my_colors(get_glacier_model_data()),
-                  color = "black",
-                  weight = 1,
-                  label = ~RIVER_BASI) |>
+    # Predefine the addPolygons function call based on the condition
+    polygons_function <- if (input$colorfill == "Year of Peak Water") {
+      function(map) {
+        map |>
+          addPolygons(data = merged_data_list[[input$ssp]],
+                      opacity = 1,
+                      fillOpacity = 1,
+                      fillColor = ~my_colors1(get_glacier_model_data1()),
+                      color = "black",
+                      weight = 1,
+                      label = ~RIVER_BASI)
+      }
+    } else {
+      function(map) {
+        map %>%
+          addPolygons(data = merged_data_list[[input$ssp]],
+                      opacity = 1,
+                      fillOpacity = 1,
+                      fillColor = ~my_colors2(get_glacier_model_data2()),
+                      color = "black",
+                      weight = 1,
+                      label = ~RIVER_BASI)
+      }
+    }
+    
+    # Define legend parameters based on the selected color fill
+    legend_pal <- if (input$colorfill == "Year of Peak Water") {
+      my_colors1
+    } else {
+      my_colors2
+    }
+    legend_title <- if (input$colorfill == "Year of Peak Water") {
+      "Year of Peak Water"
+    } else {
+      HTML("Average Annual Runoff [km<sup>3</sup>]")
+    }
+    legend_values <- if (input$colorfill == "Year of Peak Water") {
+      seq(2000, 2100, length.out = 5)
+    } else {
+      seq(0, 82, length.out = 5)
+    }
+    
+    # Create leaflet map and add tiles
+    leaflet() %>%
+      addTiles() %>%
+      # Call the predefined polygons_function
+      polygons_function() %>%
       addPolygons(data = merged_data_list[[input$ssp]],
                   fillColor = "transparent",
                   stroke = FALSE,
@@ -192,12 +264,12 @@ server <- function(input, output, session) {
                   label = ~RIVER_BASI,
                   highlightOptions = highlightOptions(color = "white", weight = 2, bringToFront = TRUE),
                   layerId = ~RIVER_BASI,
-                  group = "basin_group") |>
-      addLayersControl(overlayGroups = c("basin_group")) |>
+                  group = "basin_group") %>%
+      addLayersControl(overlayGroups = c("basin_group")) %>%
       addLegend(position = "bottomright",
-                pal = my_colors,
-                values = seq(2000, 2100, length.out = 5),  
-                title = "Year of Peak Water",
+                pal = legend_pal,
+                values = legend_values,
+                title = legend_title,
                 opacity = 1)
   })
   
