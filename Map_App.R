@@ -168,7 +168,7 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   # Show notification on initial load
   showNotification("Welcome to the MINT (Middlebury Ice Numerical Team) interactive
-  glacier model intercomparison map. This app presents century-scale runoff
+  glacier model runoff intercomparison map. This app presents century-scale runoff
   projections from 3 state-of-the-art glacier evolution models. The basins
   can be colored according to their (across-century) average annual runoff or year 
   of projected peak water (year of maximum annual runoff).
@@ -244,7 +244,7 @@ server <- function(input, output, session) {
     legend_title <- if (input$colorfill == "Year of Peak Water") {
       "Year of Peak Water"
     } else {
-      HTML("Average Annual Runoff [km<sup>3</sup>]")
+      HTML("Average Annual<br>Runoff [km<sup>3</sup>]")
     }
     legend_values <- if (input$colorfill == "Year of Peak Water") {
       seq(2000, 2100, length.out = 5)
@@ -270,7 +270,8 @@ server <- function(input, output, session) {
                 pal = legend_pal,
                 values = legend_values,
                 title = legend_title,
-                opacity = 1)
+                opacity = 1
+                )
   })
   
   # Display basin information and plot on click
