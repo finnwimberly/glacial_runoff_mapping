@@ -14,25 +14,22 @@ library(shiny)
 library(leaflet.extras)
 library(shinyjs)
 library(rsconnect)
+library(here)
 
-rsconnect::setAccountInfo(name='finnwimberly',
-                          token='AC25EF716658B144D71AAE779215D592',
-                          secret='0woHPAj3KgceagWBm4WhD7u/P1vUfFvbHG2QftJ+')
-
-outline_path <- "Lizz Research/data/glacier_basins.shp"
+basepath <- "~/Documents/GitHub/glacial_runoff_mapping/Data&Figures/"
+outline_path <- paste0(basepath, "Outlines/glacier_basins.shp")
 basin_outlines <- st_read(outline_path)
 
 #Reading in peak water data
 #Lets define all of our dimensions
 scenarios <- c('ssp126','ssp245','ssp370','ssp585')
-
-fpath0 <- 'Lizz Research/CSV Outputs/Median PW/Median_PeakWater'
+pw_path <- paste0(basepath, "CSV Outputs/Median PW/Median_PeakWater")
 
 # Read the CSV files into R dataframes
-ssp126_df <- read.csv(paste0(fpath0,"_ssp126.csv"))
-ssp245_df <- read.csv(paste0(fpath0,"_ssp245.csv"))
-ssp370_df <- read.csv(paste0(fpath0,"_ssp370.csv"))
-ssp585_df <- read.csv(paste0(fpath0,"_ssp585.csv"))
+ssp126_df <- read.csv(paste0(pw_path,"_ssp126.csv"))
+ssp245_df <- read.csv(paste0(pw_path,"_ssp245.csv"))
+ssp370_df <- read.csv(paste0(pw_path,"_ssp370.csv"))
+ssp585_df <- read.csv(paste0(pw_path,"_ssp585.csv"))
 
 # Create a list to store the dataframes
 ssp_dataframes <- list(ssp126_df, ssp245_df, ssp370_df, ssp585_df)
@@ -80,14 +77,14 @@ for (ssp_name in names(ssp_dataframes)) {
                                         by.x = "RIVER_BASI", by.y = "X", all.x = TRUE)}
 
 #Reading in dataframe that contains additional basin data
-fpath1 <- 'Lizz Research/CSV Outputs/Parameters/MASTERS/'
+supp_path <- paste0(basepath, "/CSV Outputs/Parameters/MASTERS/")
 
 # Define the glacier models
 gmodels <- c("GloGEM", "PyGEM", "OGGM")
 
 # Read the CSV files into R dataframes and store them in a list
 basin_info_dataframes <- lapply(gmodels, function(gmodel) {
-  read.csv(paste0(fpath1, "MASTER_", gmodel, ".csv"))
+  read.csv(paste0(supp_path, "MASTER_", gmodel, ".csv"))
 })
 
 # Name the list elements with the glacier model names
@@ -169,9 +166,9 @@ server <- function(input, output, session) {
   display_plot <- function(basin_name, ssp, glacier_model) {
     # Construct the file path to the saved plot image
     if (input$glacier_model == "Multi-Model Median") {
-      plot_file_path <- paste0("/Users/finnwimberly/Desktop/Lizz Research/App Figs/RF_", basin_name, "_", ssp, ".png")
+      plot_file_path <- paste0(basepath, "App Figs/", ssp, "/RF_", basin_name, "_", ssp, ".png")
     } else {
-      plot_file_path <- paste0("/Users/finnwimberly/Desktop/Lizz Research/App Figs/RF_", basin_name, "_", ssp, "_", glacier_model, ".png")
+      plot_file_path <- paste0(basepath, "App Figs/", ssp, "/RF_", basin_name, "_", ssp, "_", glacier_model, ".png")
     }
     
     # Return the plot file path
@@ -257,8 +254,6 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui = ui, server = server)
-
-rsconnect::deployApp('Final_v2.R')
 
 
 #Code to save image of single SSP map
