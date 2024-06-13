@@ -16,15 +16,20 @@ library(shinyjs)
 library(rsconnect)
 library(here)
 
-basepath <- "~/Documents/GitHub/glacial_runoff_mapping/Data&Figures/"
-outline_path <- paste0(basepath, "Outlines/glacier_basins.shp")
+# Define the base path as the project root
+basepath <- here()
+#print(basepath)
+
+# Paths to data and figures directories relative to the project root
+outline_path <- file.path(basepath, "Data&Figures", "Outlines", "glacier_basins.shp")
 basin_outlines <- st_read(outline_path)
 
-#Reading in peak water data
-#Lets define all of our dimensions
+# Define all of our dimensions
 scenarios <- c('ssp126','ssp245','ssp370','ssp585')
 
-pw_path <- paste0(basepath, "CSV Outputs/Median PW/Median_PeakWater")
+# Path for peak water data relative to the project root
+pw_path <- file.path(basepath, "Data&Figures", "CSV Outputs", "Median PW", "Median_PeakWater")
+
 # Read the CSV files into R dataframes
 ssp126_df <- read.csv(paste0(pw_path,"_ssp126.csv"))
 ssp245_df <- read.csv(paste0(pw_path,"_ssp245.csv"))
@@ -77,12 +82,15 @@ for (ssp_name in names(ssp_dataframes)) {
                                         by.x = "RIVER_BASI", by.y = "X", all.x = TRUE)}
 
 #Loading in runoff data
-rf_path <- paste0(basepath, 'CSV Outputs/RF Values/')
+#rf_path <- paste0(basepath, 'CSV Outputs/RF Values/')
+rf_path <- file.path(basepath, "Data&Figures", "CSV Outputs", "RF Values")
+
+
 # Read runoff data for SSPs
-ssp126_rfdf <- read.csv(paste0(rf_path,"ssp126_avgRF.csv"))
-ssp245_rfdf <- read.csv(paste0(rf_path,"ssp245_avgRF.csv"))
-ssp370_rfdf <- read.csv(paste0(rf_path,"ssp370_avgRF.csv"))
-ssp585_rfdf <- read.csv(paste0(rf_path,"ssp585_avgRF.csv"))
+ssp126_rfdf <- read.csv(paste0(rf_path,"/ssp126_avgRF.csv"))
+ssp245_rfdf <- read.csv(paste0(rf_path,"/ssp245_avgRF.csv"))
+ssp370_rfdf <- read.csv(paste0(rf_path,"/ssp370_avgRF.csv"))
+ssp585_rfdf <- read.csv(paste0(rf_path,"/ssp585_avgRF.csv"))
 
 # Create a list to store the dataframes
 rf_dataframes <- list(ssp126_rfdf, ssp245_rfdf, ssp370_rfdf, ssp585_rfdf)
@@ -96,14 +104,14 @@ for (ssp in names(rf_dataframes)) {
 }
 
 #Reading in dataframe that contains additional basin data
-supp_path <- paste0(basepath, "/CSV Outputs/Parameters/MASTERS/")
+supp_path <- file.path(basepath, "Data&Figures", "CSV Outputs", "Parameters", "MASTERS")
 
 # Define the glacier models
 gmodels <- c("GloGEM", "PyGEM", "OGGM")
 
 # Read the CSV files into R dataframes and store them in a list
 basin_info_dataframes <- lapply(gmodels, function(gmodel) {
-  read.csv(paste0(supp_path, "MASTER_", gmodel, ".csv"))
+  read.csv(paste0(supp_path, "/MASTER_", gmodel, ".csv"))
 })
 
 # Name the list elements with the glacier model names
@@ -195,19 +203,18 @@ server <- function(input, output, session) {
     }
   })
   
-  # Function to retrieve and display plot images
+  # Function to display the plot
   display_plot <- function(basin_name, ssp, glacier_model) {
     # Construct the file path to the saved plot image
-    if (input$glacier_model == "Multi-Model Median") {
-      plot_file_path <- paste0(basepath, "App Figs/", ssp, "/RF_", basin_name, "_", ssp, ".png")
+    if (glacier_model == "Multi-Model Median") {
+      plot_file_path <- file.path(basepath, "Data&Figures", "App Figs", ssp, paste0("RF_", basin_name, "_", ssp, ".png"))
     } else {
-      plot_file_path <- paste0(basepath, "App Figs/", ssp, "/RF_", basin_name, "_", ssp, "_", glacier_model, ".png")
+      plot_file_path <- file.path(basepath, "Data&Figures", "App Figs", ssp, paste0("RF_", basin_name, "_", ssp, "_", glacier_model, ".png"))
     }
     
     # Return the plot file path
     return(plot_file_path)
   }
-  
   
   output$map <- renderLeaflet({
     # Predefine the addPolygons function call based on the condition
