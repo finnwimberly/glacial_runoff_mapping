@@ -21,6 +21,16 @@ library(rsconnect)
 library(here)
 #library(shinylive)
 #library(httpuv)
+library(stringi)
+library(data.table)
+
+
+options(encoding = "UTF-8")
+
+load("merged_data_list.R")
+load("rf_dataframes.R")
+load("basin_info_dataframes.R")
+
 
 
 # Define the color palette based on the range of years
@@ -28,14 +38,44 @@ my_colors1 <- colorNumeric(palette = "magma", domain = range(2000, 2100))
 my_colors2 <- colorNumeric(palette = "viridis", domain = range(0, 82))
 
 # Creating our UI
+# ui <- fluidPage(
+#   titlePanel("Projected 21st Century Glacier Runoff"),
+#   sidebarLayout(
+#     sidebarPanel(
+#       selectInput("colorfill", "Select Color Fill:", choices = 
+#                     c("Average Annual Runoff", "Year of Peak Water")),
+#       selectInput("ssp", "Select SSP:", choices = names(merged_data_list)),
+#       selectInput("glacier_model", "Select Glacier Model:", choices = c("Multi-Model Median", "GloGEM", "PyGEM", "OGGM"))
+#     ),
+#     mainPanel(
+#       leafletOutput("map"),
+#       tags$style(HTML(".legend-superscript { line-height: 0.8; }"))  # CSS for adjusting line height
+#     )
+#   )
+# )
+
+# Creating our UI
 ui <- fluidPage(
   titlePanel("Projected 21st Century Glacier Runoff"),
   sidebarLayout(
     sidebarPanel(
       selectInput("colorfill", "Select Color Fill:", choices = 
-                    c("Average Annual Runoff", "Year of Peak Water")),
+                    c("Year of Peak Water", "Average Annual Runoff")),
       selectInput("ssp", "Select SSP:", choices = names(merged_data_list)),
-      selectInput("glacier_model", "Select Glacier Model:", choices = c("Multi-Model Median", "GloGEM", "PyGEM", "OGGM"))
+      selectInput("glacier_model", "Select Glacier Model:", choices = c("Multi-Model Median", "GloGEM", "PyGEM", "OGGM")),
+      tags$div(
+        class = "welcome-message",
+        tags$p("Welcome to the MINT (Middlebury Ice Numerical Team) interactive
+               glacier model runoff intercomparison map. This app presents century-scale 
+               runoff projections from 3 state-of-the-art glacier evolution models. The 
+               basins can be colored according to their (across-century) average annual 
+               runoff or year of projected peak water (year of maximum annual runoff). 
+               You can select any of the 3 glacier models, or the multi-model median, for 
+               4 different emission scenarios from the drop-down menus. Clicking on any 
+               individual basin will result in a pop-up containing more information and 
+               figures relevant to that basin. Enjoy!"),
+        style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; border: 1px solid #ddd;"
+      )
     ),
     mainPanel(
       leafletOutput("map"),
@@ -44,21 +84,8 @@ ui <- fluidPage(
   )
 )
 
-
 # Server
 server <- function(input, output, session) {
-  # # Show notification on initial load
-  showNotification("Welcome to the MINT (Middlebury Ice Numerical Team) interactive
-  glacier model runoff intercomparison map. This app presents century-scale runoff
-  projections from 3 state-of-the-art glacier evolution models. The basins
-  can be colored according to their (across-century) average annual runoff or year
-  of projected peak water (year of maximum annual runoff).
-  You can select any of the 3 glacier models, or the multi-model median, for 4
-  different emission scenarios from the drop-down menus. Clicking on any
-  individual basin will result in a pop-up containing more information and
-  figures relevant to that basin. Enjoy!",
-                   duration = NULL, type = "message")
-
   # Reactive expression to get the selected glacier model data
   get_glacier_model_data1 <- reactive({
     if (input$glacier_model == "Multi-Model Median") {
@@ -67,7 +94,7 @@ server <- function(input, output, session) {
       return(merged_data_list[[input$ssp]][[input$glacier_model]])
     }
   })
-
+  
   get_glacier_model_data2 <- reactive({
     if (input$glacier_model == "Multi-Model Median") {
       return(rf_dataframes[[input$ssp]]$Median_RF)
@@ -75,7 +102,7 @@ server <- function(input, output, session) {
       return(rf_dataframes[[input$ssp]][[input$glacier_model]])
     }
   })
-
+  
   # Function to display the plot
   display_plot <- function(basin_name, ssp, glacier_model) {
     # Construct the file path to the saved plot image
@@ -84,11 +111,11 @@ server <- function(input, output, session) {
     } else {
       plot_file_path <- here("Data&Figures", "App Figs", ssp, paste0("RF_", basin_name, "_", ssp, "_", glacier_model, ".png"))
     }
-
+    
     # Return the plot file path
     return(plot_file_path)
   }
-
+  
   output$map <- renderLeaflet({
     # Predefine the addPolygons function call based on the condition
     polygons_function <- if (input$colorfill == "Year of Peak Water") {
@@ -114,7 +141,7 @@ server <- function(input, output, session) {
                       label = ~RIVER_BASI)
       }
     }
-
+    
     # Define legend parameters based on the selected color fill
     legend_pal <- if (input$colorfill == "Year of Peak Water") {
       my_colors1
@@ -131,7 +158,7 @@ server <- function(input, output, session) {
     } else {
       seq(0, 82, length.out = 5)
     }
-
+    
     # Create leaflet map and add tiles
     leaflet() %>%
       addTiles() %>%
@@ -150,10 +177,11 @@ server <- function(input, output, session) {
                 pal = legend_pal,
                 values = legend_values,
                 title = legend_title,
-                opacity = 1
-                )
+                opacity = 1,
+                labFormat = labelFormat(big.mark = "")
+      )
   })
-
+  
   # Display basin information and plot on click
   observeEvent(input$map_shape_click, {
     event <- input$map_shape_click
@@ -167,11 +195,11 @@ server <- function(input, output, session) {
         supp_basin_data <- basin_info_dataframes[[input$glacier_model]][basin_info_dataframes[[input$glacier_model]]$Basin_Name == basin_name,][1, ]
         pw_year <- selected_basin_data[[input$glacier_model]]
       }
-
-      #Explicitly calling columns specific to single SSPs
+      
+      # Explicitly calling columns specific to single SSPs
       ssp <- input$ssp
       supp_basin_data$Mean_Initial_Volumes <- supp_basin_data[[paste0("Mean_Initial_Volumes_", ssp)]]
-
+      
       # Use output$basin_table to render a table
       output$basin_table <- renderTable({
         data.frame(
@@ -180,24 +208,24 @@ server <- function(input, output, session) {
           "Percent Area Initially Glaciated" = 100 * supp_basin_data$GlacierAreaFrac,
           "Initial Ice Volume (Km³)" = supp_basin_data$Mean_Initial_Volumes,
           "Year of Peak Water" = pw_year,
-          "Number of Glaciers" = supp_basin_data$X.glaciers,
+          "Number of Glaciers" = supp_basin_data$`#glaciers`,
           check.names = FALSE
         )
       })
-
+      
       # Display plot for the selected basin, SSP, and glacier model
       plot_file_path <- display_plot(basin_name, input$ssp, input$glacier_model)
-
+      
       # Render the plot image
       output$plot_image <- renderImage({
-        list(src = plot_file_path, alt = "Runoff Plot", width = "100%")
+        list(src = plot_file_path, alt = "Runoff Plot", width = "85%")
       }, deleteFile = FALSE)
-
+      
       showModal(modalDialog(
         title = "Basin Information",
         fluidRow(
           column(12, tableOutput("basin_table")),
-          column(12, imageOutput("plot_image"))
+          column(12, div(style = "text-align: center;", imageOutput("plot_image")))  # Center the image
         ),
         easyClose = TRUE,
         size = "l"  # Adjust the size of the modal dialog window
@@ -207,15 +235,3 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui = ui, server = server)
-
-app_path <- here()
-
-
-rsconnect::deployApp(app_path, appName = "Global_Glacier_Runoff", forceUpdate = TRUE)
-
-
-# #Writing out to a static HTML file
-# shinylive::export(appdir = paste0(basepath, "/"), destdir = "docs")
-# 
-# #httpuv::runStaticServer("docs/", port=8008)
-# httpuv::runStaticServer("docs")
