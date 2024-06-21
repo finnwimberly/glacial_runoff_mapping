@@ -37,15 +37,29 @@ load("basin_info_dataframes.R")
 my_colors1 <- colorNumeric(palette = "magma", domain = range(2000, 2100))
 my_colors2 <- colorNumeric(palette = "viridis", domain = range(0, 82))
 
-# Creating our UI
+# # Creating our UI
 # ui <- fluidPage(
 #   titlePanel("Projected 21st Century Glacier Runoff"),
 #   sidebarLayout(
 #     sidebarPanel(
 #       selectInput("colorfill", "Select Color Fill:", choices = 
-#                     c("Average Annual Runoff", "Year of Peak Water")),
+#                     c("Year of Peak Water", "Average Annual Runoff")),
 #       selectInput("ssp", "Select SSP:", choices = names(merged_data_list)),
-#       selectInput("glacier_model", "Select Glacier Model:", choices = c("Multi-Model Median", "GloGEM", "PyGEM", "OGGM"))
+#       selectInput("glacier_model", "Select Glacier Model:", choices = c("Multi-Model Median", "GloGEM", "PyGEM", "OGGM")),
+#       tags$div(
+#         class = "welcome-message",
+#         tags$p("Welcome to the MINT (Middlebury Ice Numerical Team) interactive
+#                glacier model runoff intercomparison map. This app presents century-scale 
+#                runoff projections from 3 state-of-the-art glacier evolution models. The 
+#                basins can be colored according to their (across-century) average annual 
+#                runoff or year of projected peak water (year of maximum annual runoff). 
+#                You can select any of the 3 glacier models, or the multi-model median, for 
+#                4 different emission scenarios from the drop-down menus. Clicking on any 
+#                individual basin will result in a pop-up containing more information and 
+#                figures relevant to that basin. The code used to create this application is 
+#                available on GitHub at finnwimberly/glacial_runoff_mapping"),
+#         style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; border: 1px solid #ddd;"
+#       )
 #     ),
 #     mainPanel(
 #       leafletOutput("map"),
@@ -54,7 +68,6 @@ my_colors2 <- colorNumeric(palette = "viridis", domain = range(0, 82))
 #   )
 # )
 
-# Creating our UI
 ui <- fluidPage(
   titlePanel("Projected 21st Century Glacier Runoff"),
   sidebarLayout(
@@ -66,14 +79,16 @@ ui <- fluidPage(
       tags$div(
         class = "welcome-message",
         tags$p("Welcome to the MINT (Middlebury Ice Numerical Team) interactive
-               glacier model runoff intercomparison map. This app presents century-scale 
+               glacier runoff model-intercomparison map. This app presents century-scale 
                runoff projections from 3 state-of-the-art glacier evolution models. The 
-               basins can be colored according to their (across-century) average annual 
-               runoff or year of projected peak water (year of maximum annual runoff). 
+               basins can be colored according to their year of projected peak water (year 
+               of maximum annual runoff) or (across-century) average annual runoff. 
                You can select any of the 3 glacier models, or the multi-model median, for 
                4 different emission scenarios from the drop-down menus. Clicking on any 
                individual basin will result in a pop-up containing more information and 
-               figures relevant to that basin. Enjoy!"),
+               figures relevant to that basin. The code used to create this application is 
+               available in", tags$a(href="https://github.com/finnwimberly/glacial_runoff_mapping", "this repository"),
+               "on GitHub."),
         style = "background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; border: 1px solid #ddd;"
       )
     ),
