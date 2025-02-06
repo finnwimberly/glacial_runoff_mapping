@@ -176,7 +176,7 @@ server <- function(input, output, session) {
     
     # Create leaflet map and add tiles
     leaflet() %>%
-      addTiles() %>%
+      addTiles(attribution = "© OpenStreetMap contributors") %>%
       # Call the predefined polygons_function
       polygons_function() %>%
       addPolygons(data = merged_data_list[[input$ssp]],
